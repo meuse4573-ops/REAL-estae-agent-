@@ -1,0 +1,228 @@
+# GuardianAI — Florida Real Estate Configuration
+
+florida:
+  version: "1.0"
+  last_updated: "2026-05-10"
+
+  # Default Deal Timelines (in calendar days)
+  timelines:
+    inspection_contingency: 15
+    financing_contingency: 30  # Can extend to 45 with approval
+    closing_financed: 45       # Can extend to 60
+    closing_cash: 30            # Can extend to 45
+    earnest_money_deposit: 3
+    loan_application: 3
+    lender_docs_after_approval: 3
+    title_commitment_before_closing: 15  # Target 10-20 days
+
+  # FAR/BAR Contract Types
+  contract_types:
+    - name: "Contract for Sale and Purchase"
+      abbrev: "FAR/BAR"
+      description: "Standard Florida contract for residential and commercial"
+    - name: "Residential Contract"
+      abbrev: "FAR/BAR Residential"
+      description: "Primary residential transaction form"
+    - name: "Vacant Land Contract"
+      abbrev: "FAR/BAR Vacant Land"
+      description: "Unimproved residential or commercial land"
+    - name: "Commercial Contract"
+      abbrev: "FAR/BAR Commercial"
+      description: "Commercial income-producing properties"
+    - name: "Assignment of Contract"
+      abbrev: "Assignment"
+      description: "Transfer of contract rights to third party"
+
+  # Required Disclosures
+  disclosures:
+    - id: "SPD_TRADITIONAL"
+      name: "Seller's Property Disclosure - Traditional"
+      required: true
+      applies_to: "All residential transactions"
+      deadline: "Prior to contract execution"
+
+    - id: "SPD_ASIS"
+      name: "Seller's Property Disclosure - AS IS"
+      required: true
+      applies_to: "AS IS contract terms"
+      deadline: "Prior to contract execution"
+
+    - id: "LEAD_BASED_PAINT"
+      name: "Lead-Based Paint Disclosure"
+      required: true
+      applies_to: "Pre-1978 residential properties"
+      deadline: "Prior to contract execution"
+      federal_requirement: true
+
+    - id: "FLOOD_ZONE"
+      name: "Flood Zone Disclosure"
+      required: true
+      applies_to: "Properties in Special Flood Hazard Area (SFHA)"
+      deadline: "Contract execution or before"
+      notes: "Must disclose if property located in FEMA flood zone A, AE, AH, AO, A1-A30, V, VE, or V1-V30"
+
+    - id: "COASTAL"
+      name: "Coastal Property Disclosure"
+      required: true
+      applies_to: "Properties within 3 miles of coastline"
+      deadline: "Prior to contract execution"
+      notes: "Includes Atlantic Gulf, Gulf of Mexico"
+
+    - id: "WIND_MITIGATION"
+      name: "Wind Mitigation Certification"
+      required: false
+      applies_to: "Single-family, 1-4 unit residential"
+      deadline: "Before closing"
+      notes: "Required for homeowner's insurance credits; Florida Statute 718 (Condos), 719 (Co-ops), 720 (HOAs)"
+
+    - id: "HOMESTEAD"
+      name: "Homestead Exemption Notice"
+      required: true
+      applies_to: "Primary residences"
+      deadline: "At closing"
+      notes: "Buyer notified of potential loss of homestead if property used as rental"
+
+    - id: "PROPERTY_TAX"
+      name: "Property Tax Disclosure"
+      required: true
+      applies_to: "All transactions"
+      deadline: "Prior to contract execution"
+      notes: "Must disclose ad valorem taxes and any pending assessments"
+
+    - id: "ASBESTOS"
+      name: "Asbestos Disclosure"
+      required: false
+      applies_to: "Commercial properties built before 1981"
+      deadline: "Prior to contract execution"
+
+  # FREC Regulations
+  regulations:
+    chapter: "Chapter 475"
+    title: "Florida Statutes - Real Estate and Business Professions"
+    scope: "Real estate license law, brokerage relationships, transactions"
+    key_sections:
+      - section: "475.01"
+        name: "Definitions"
+        description: "Definitions for real estate terms"
+      - section: "475.20"
+        name: "Brokerage Relationships"
+        description: "Authorized brokerage relationships in Florida"
+      - section: "475.21"
+        name: "Discretionary Authority"
+        description: "Transaction agent discretionary authority limitations"
+      - section: "475.22"
+        name: "Licensure Requirements"
+        description: "License categories and requirements"
+      - section: "475.25"
+        name: "Prohibited Activities"
+        description: "Activities requiring proper licensure"
+
+  # Florida Counties with Specific Requirements
+  counties:
+    high_volume:
+      - name: "Miami-Dade"
+        requirements:
+          - "Additional disclosure for high-rise condos"
+          - "HOA/condo association financial package review"
+          - "40-year recertification awareness"
+      - name: "Broward"
+        requirements:
+          - "HOA documentation requirements"
+          - "Flood zone verification critical"
+      - name: "Palm Beach"
+        requirements:
+          - "HOA/condo package requirements"
+          - "Special district disclosures"
+      - name: "Orange"
+        requirements:
+          - "Short-term rental disclosures"
+          - "Orange County utilities disclosure"
+      - name: "Hillsborough"
+        requirements:
+          - "Hillsborough County disclosure requirements"
+          - "Tampa city disclosures"
+      - name: "Pinellas"
+        requirements:
+          - "Flood zone for coastal properties"
+          - "Condo/HOA documentation"
+      - name: "Duval"
+        requirements:
+          - "Jacksonville city disclosures"
+          - "HOA/PUD documentation"
+      - name: "Lee"
+        requirements:
+          - "Lee County environmental disclosures"
+          - "Coastal construction line requirements"
+      - name: "Polk"
+        requirements:
+          - "Polk County specific disclosures"
+          - "Lake estate disclosures"
+      - name: "Brevard"
+        requirements:
+          - "Space coast coastal disclosures"
+          - "Brevard County HOA requirements"
+
+  # Hurricane/Flood Disclosure Triggers
+  disaster_disclosure:
+    flood_zone_triggers:
+      - "FEMA Special Flood Hazard Area (SFHA)"
+      - "Flood Zone A, AE, AH, AO, A1-A30, V, VE, V1-V30"
+      - "Flood insurance requirements notification"
+      - "Elevation certificate disclosure"
+
+    hurricane_triggers:
+      - "Hurricane resistance disclosure"
+      - "Wind mitigation documentation"
+      - "Roof age and condition disclosure"
+      - "Storm shutter requirements"
+
+  # Wind Mitigation Requirements
+  wind_mitigation:
+    applies_to: "1-4 unit residential buildings"
+    required_for: "Homeowner's insurance discounts"
+    forms:
+      - "Uniform Mitigation Verification Form (OIR-B1-1352)"
+      - "Homeowner self-certification form"
+    credits_affected:
+      - "Roof geometry"
+      - "Roof-to-wall connection"
+      - "Secondary water resistance"
+      - "Opening protection"
+
+  # Commission Standards
+  commission:
+    typical_range: "5-6%"
+    split_standard: "Negotiated between broker and agent"
+    transaction_coordinator:
+      fee_range: "$250-$500 per transaction"
+      flat_fee: true
+    note: "Commission is NOT fixed by law in Florida"
+
+  # Earnest Money Standards
+  earnest_money:
+    typical_amount: "1-3% of purchase price"
+    deposit_deadline: "3 business days after contract acceptance"
+    holding: "Broker trust account per Chapter 475"
+    disposition:
+      - "credited at closing"
+      - "refunded to buyer"
+      - "released to seller"
+
+  # License Categories (FREC)
+  license_types:
+    - type: "Sales Associate"
+      abbrev: "SA"
+      supervision_required: true
+      scope: "Perform real estate services under broker supervision"
+    - type: "Broker Associate"
+      abbrev: "BA"
+      supervision_required: false
+      scope: "Can work independently or with broker affiliation"
+    - type: "Licensed Broker"
+      abbrev: "B"
+      supervision_required: false
+      scope: "Full independent brokerage authority"
+    - type: "Registered Assistant"
+      abbrev: "RA"
+      supervision_required: true
+      scope: "Admin and clerical only"
