@@ -58,7 +58,18 @@ guardian-ai/
 │   │   ├── communication_tools.py # Email/SMS parsing
 │   │   ├── risk_tools.py         # Deal safety scoring
 │   │   ├── compliance_tools.py   # Florida checklist
-│   │   └── action_tools.py       # Tasks, CRM updates
+│   │   ├── action_tools.py       # Tasks, CRM updates
+│   │   ├── signature_tools.py    # DocuSign/dotloop integration
+│   │   ├── wire_fraud_guard.py   # Wire fraud detection
+│   │   ├── offer_tools.py        # Offer/counter-offer drafting
+│   │   ├── cma_tools.py          # Comparable market analysis
+│   │   ├── calendar_tools.py     # Google/Outlook calendar
+│   │   └── voice_tools.py        # Call logging, transcription
+│   ├── ai_framework/           # AI/ML depth layer
+│   │   ├── prompts/             # Prompt templates with few-shot
+│   │   ├── schemas/             # Output validation JSON schemas
+│   │   ├── rag/                 # Hybrid RAG utilities
+│   │   └── reasoning/           # Chain-of-thought logging
 │   ├── subagents/
 │   │   ├── auditor.py        # Compliance, signatures, checklists
 │   │   ├── communicator.py   # Drafting, sentiment, channels
@@ -91,7 +102,7 @@ guardian-ai/
 # PHASE 0: ENVIRONMENT SETUP
 
 Step 0.1: GitHub Connection
-- ✅ GitHub connected to: https://github.com/meuse4573-ops/REAL-estate-.git
+- ✅ GitHub connected to: https://github.com/meuse4573-ops/REAL-estae-agent-.git
 - ✅ SOUL.md pushed to repo
 - Future: Regular commits as we build
 
@@ -99,7 +110,61 @@ Step 0.2: Project Structure Creation
 - Create guardian_ai/ folder structure
 - Move SOUL.md to guardian_ai/soul/
 
-=============================================================================
+================================================================================
+# PHASE 0.5: SECURITY LAYER (Week 1)
+
+Step 0.5.1: Authentication & Token Management
+File: `guardian_ai/core/security.py`
+- JWT authentication with 15-min access tokens + 7-day refresh tokens
+- Token rotation on each request
+- Revocation list for compromised tokens
+
+Step 0.5.2: API Key Vault
+- HashiCorp Vault or AWS Secrets Manager pattern
+- All API keys (ATTOM, CRM, email) stored in vault, never in code
+- Automatic key rotation schedule
+
+Step 0.5.3: Data Encryption
+- Row-level AES-256 encryption for PII columns: buyer_name, seller_name, SSN, financial_data
+- Encryption at rest (PostgreSQL TDE) and in transit (TLS 1.3)
+- Key management via KMS (AWS KMS or HashiCorp Vault Transit)
+
+## Error Handling: Circuit Breaker for External APIs
+- If ATTOM fails 3 times, switch to cached data + alert
+- Fallback LLM: primary GPT-4, fallback Gemini, emergency local Llama-3
+- Graceful degradation: if OCR confidence < 50%, immediately flag for human review instead of retrying
+- Dead letter queue: failed tasks go to DLQ for manual inspection after 3 retries
+- Exponential backoff: 1s, 2s, 4s, 8s, 16s between retries
+
+Step 0.5.4: SQL Injection Prevention
+- ALL queries use parameterized statements only
+- ORM layer (SQLAlchemy) with enforced parameterization
+- Regular security audits with SQLMap
+
+Step 0.5.5: XSS Prevention
+- Sanitize all AI-generated outputs before displaying
+- Content Security Policy (CSP) headers on all responses
+- HTML encoding for all user-facing text
+
+Step 0.5.6: Rate Limiting
+- 100 requests/min per tenant
+- 1000 requests/day per IP
+- Burst allowance: 20 requests in 1-second window, then throttle
+
+Step 0.5.7: Wire Fraud Detection
+- Flag if wire instructions change mid-transaction
+- Require phone callback verification for any wire instruction modification
+- Dual-approval for wiring above $100K
+- Audit trail for all wire-related communications
+
+Step 0.5.8: Backup & Recovery
+- Daily encrypted PostgreSQL dumps to S3
+- 7-day retention for daily backups
+- Monthly archives retained for 1 year
+- Point-in-time recovery (PITR) enabled
+- Disaster recovery plan with < 4 hour RTO
+
+================================================================================
 # PHASE 1: FOUNDATION & IDENTITY (Week 1)
 
 Step 1.1: SOUL.md — Agent Persona
@@ -329,7 +394,30 @@ File: `guardian_ai/memory/vector_store.py`
 - Store historical deal patterns
 - Support semantic search for deal Q&A
 
-=============================================================================
+Step 2.5: Zero-Dashboard Browser Extension (EARLY BUILD)
+File: `guardian_ai/gateway/browser_extension/`
+Purpose: Build the Zero-Dashboard experience EARLY — functional with basic features by Week 3.
+- Gmail/Outlook sidebar showing deal context
+- Basic risk alerts (simple threshold-based)
+- Email reading and classification
+- Deal pipeline sidebar
+- WHY: Agents need to see the AI working inside their existing tools from Day 1. Advanced features (inline drafting, one-click approvals, Deal Safety Score indicators) added in Phase 8.
+
+Step 2.5a: Scalability Infrastructure
+- PostgreSQL read replicas for query-heavy ops (deal listing, search)
+- PgBouncer connection pooling (max 100 connections per replica)
+- Redis caching layer: cache deal scores for 1 hour, contact baselines for 24 hours
+- Database partitioning: partition audit_logs and rlhf_data by month
+- Celery task routing: high priority queue for urgent deal checks, low for daily syncs
+
+**Error Handling & Resilience (Applies to Phase 2):**
+- Circuit breaker: If database read replica fails, fallback to primary
+- Connection pool exhaustion handling: queue requests, alert if PgBouncer max reached
+- Redis cache miss fallback: query database directly if cache unavailable
+- Dead letter queue for failed sync tasks
+- Exponential backoff: 1s, 2s, 4s, 8s, 16s between retries
+
+================================================================================
 # PHASE 3: DOCUMENT INTELLIGENCE (Week 2-3)
 
 Step 3.1: PDF Extraction Tool
@@ -733,19 +821,7 @@ Features:
 - Real-time webhook updates
 - Fallback to polling if webhooks not available
 
-Step 8.3: Zero-Dashboard Browser Extension
-File: `guardian_ai/gateway/browser_extension/`
-
-Purpose: Agent works INSIDE existing tools, no new app to learn
-
-Features:
-- Sidebar in Gmail/Outlook showing deal context
-- Inline draft suggestions
-- Risk alerts as browser notifications
-- One-click approvals
-- Deal Safety Score indicator on each email
-
-=============================================================================
+================================================================================
 # PHASE 9: SCHEDULED TASKS & AUTOMATION (Week 8)
 
 Step 9.1: Periodic Deal Health Checks
@@ -774,13 +850,26 @@ Logic:
 Step 9.3: Background Processing (Celery)
 File: `guardian_ai/tasks/`
 
+Task Queues:
+- High priority queue: urgent deal checks, risk alerts, wire fraud verification
+- Default queue: daily syncs, market data refresh, preference updates
+- Low priority queue: analytics aggregation, report generation, archive tasks
+
 Tasks:
 - document_ocr_queue: Process uploaded documents asynchronously
 - communication_sync: Sync emails/SMS periodically
 - risk_recalculation: Update deal scores in background
 - market_data_refresh: Update external market data daily
+- signature_status_check: Poll DocuSign/dotloop for signature status updates
+- wire_fraud_monitor: Check for wire instruction changes
 
-=============================================================================
+**Error Handling & Resilience (Applies to Phase 9):**
+- Circuit breaker: If DocuSign/dotloop API fails 3 times, alert agent and use cached signature status
+- Dead letter queue for failed async tasks (document OCR, communication sync)
+- Fallback: If Celery workers unavailable, process tasks synchronously with timeout
+- Rate limiting for external API calls (ATTOM, CRM webhooks)
+
+================================================================================
 # PHASE 10: COMPLIANCE & AUDIT (Week 8-9)
 
 Step 10.1: Immutable Audit Trail
@@ -819,6 +908,13 @@ File: `guardian_ai/config/frec_compliance.py`
 
 =============================================================================
 # PHASE 11: CONTINUOUS LEARNING (RLHF) (Week 9-10)
+
+**Error Handling & Resilience (Applies to all phases):**
+- Circuit breaker for external APIs: if ATTOM fails 3 times, switch to cached data + alert
+- Fallback LLM: primary GPT-4, fallback Gemini, emergency local Llama-3
+- Graceful degradation: if OCR confidence < 50%, immediately flag for human review instead of retrying
+- Dead letter queue: failed tasks go to DLQ for manual inspection after 3 retries
+- Exponential backoff: 1s, 2s, 4s, 8s, 16s between retries
 
 Step 11.1: Training Signal Capture
 File: `guardian_ai/learning/rlhf_loop.py`
@@ -869,7 +965,79 @@ Learn Florida-specific patterns:
 - Common inspection issues (older homes = more findings)
 - Lender behavior patterns (which lenders are fast/slow)
 
-=============================================================================
+================================================================================
+# PHASE 11.5: AI/ML FRAMEWORK (Week 10)
+
+Step 11.5.1: Prompt Templates with Few-Shot Examples
+File: `guardian_ai/ai_framework/prompts/`
+- Create prompt templates for each task type:
+  - Document extraction prompts with 3-5 few-shot examples
+  - Email summarization prompts with real estate context
+  - Risk assessment prompts with chain-of-thought examples
+  - Communication drafting prompts with tone/style examples
+- Template versioning and A/B testing capability
+
+Step 11.5.2: Chain-of-Thought Reasoning
+- Force AI to show work before giving answer
+- Structured reasoning output: [OBSERVATION] → [ANALYSIS] → [CONCLUSION]
+- Required for: risk assessments, compliance checks, deal scoring
+- Log reasoning chains for audit and debugging
+
+Step 11.5.3: Hallucination Guardrail
+- Verify every AI claim against source document text
+- Citation requirement: every factual claim must reference source paragraph/page
+- Confidence threshold: flag outputs with < 70% confidence for human review
+- Cross-validate extracted data against multiple sources when available
+
+Step 11.5.4: Output Validation Schema
+- JSON schema enforcement for structured outputs
+- Document extraction: validate required fields present and correctly typed
+- Deal scoring: validate score is within 0-100 range with valid breakdown
+- Communication drafts: validate no PII leakage, proper formatting
+- Reject and regenerate if output fails schema validation
+
+Step 11.5.5: Hybrid RAG System
+- Combine vector similarity (Chroma) + BM25 keyword search
+- Reciprocal Rank Fusion (RRF) to merge results from both retrieval methods
+- Vector search for semantic matches: "Find docs about seller concessions"
+- BM25 for exact matches: contract clause references, specific dates
+- Query expansion: automatically generate related sub-queries
+
+Step 11.5.6: Document Chunking Strategy
+- Split by paragraph, 20% overlap between chunks
+- Max 512 tokens per chunk
+- Metadata enrichment: tag chunks with document type, section, page number
+- Hierarchical chunking: section-level + paragraph-level embeddings
+- Smart chunk boundaries: respect table structures and list items
+
+Step 11.5.7: Reranking with Cross-Encoder
+- Cross-encoder model to score relevance of retrieved chunks
+- Re-rank top 20 vector/BM25 results down to top 5
+- Fine-tune reranker on real estate Q&A pairs
+- Latency budget: reranking must add < 200ms to query time
+
+Step 11.5.8: AI Framework Directory
+File: `guardian_ai/ai_framework/`
+```
+ai_framework/
+├── prompts/                  # Prompt templates with few-shot examples
+│   ├── extraction_prompts.yaml
+│   ├── summarization_prompts.yaml
+│   ├── risk_assessment_prompts.yaml
+│   └── drafting_prompts.yaml
+├── schemas/                  # Output validation schemas
+│   ├── document_extraction.json
+│   ├── deal_score.json
+│   └── email_draft.json
+├── rag/                      # RAG utilities
+│   ├── hybrid_search.py
+│   ├── chunker.py
+│   └── reranker.py
+└── reasoning/               # Chain-of-thought utilities
+    └── cot_logger.py
+```
+
+================================================================================
 # PHASE 12: TESTING & POLISH (Week 10-11)
 
 Step 12.1: Unit Tests
@@ -911,6 +1079,44 @@ Step 12.4: Performance Testing
 - Deal safety score calculation (<2 seconds)
 - Concurrent user load testing
 
+Step 12.5: Property-Based Testing
+File: `tests/property/`
+- Generate 1000 random date combinations, verify timeline calculations
+- Test with invalid, overlapping, and boundary date scenarios
+- Florida business day calculations across holidays
+- Property types: residential, commercial, vacant land variations
+
+Step 12.6: Contract Fuzzing
+File: `tests/fuzzing/`
+- Test with 50 corrupted/malformed PDFs (truncated, corrupted, non-standard layouts)
+- Ensure no crashes or hangs on malformed documents
+- Validate graceful error handling and recovery
+- OCR fallback behavior verification
+
+Step 12.7: Load Testing
+- Simulate 100 concurrent agents, 1000 deals each
+- Measure response times under load
+- Verify PostgreSQL read replicas handle query load
+- Test PgBouncer connection pooling under load
+- Redis cache hit rate under concurrent access
+- Target: <200ms p95 response time at full load
+
+Step 12.8: Chaos Testing
+- Randomly kill 30% of Celery workers, verify system recovers in < 30 seconds
+- Test circuit breaker activation during external API failures
+- Verify DLQ processing after worker recovery
+- Database connection recovery after network partition
+- Validate fallback LLM switch when primary fails
+
+Step 12.9: Security Testing
+File: `tests/security/`
+- SQL injection prevention: verify parameterized queries prevent injection
+- XSS prevention: sanitize AI outputs before display
+- PII encryption verification: confirm AES-256 encryption on sensitive fields
+- Rate limiting enforcement: verify 100 req/min per tenant limits
+- JWT token validation and revocation testing
+- Wire fraud detection: verify instruction change triggers callback
+
 =============================================================================
 # PHASE 13: DEPLOYMENT (Week 11-12)
 
@@ -951,7 +1157,7 @@ AWS/GCP:
 - Celery workers: Auto-scaling based on queue depth
 - API Gateway for authentication
 
-Step 13.3: Monitoring & Observability
+Step 17.3: Monitoring & Observability
 
 Agent performance:
 - Deal Safety Score accuracy (human override rate)
@@ -969,49 +1175,7 @@ Learning metrics:
 - Model improvement curves
 - Preference convergence (how stable are preferences)
 
-=============================================================================
-# THE 27 CORE CAPABILITIES (MAPPING)
-
-### I. DOCUMENT INTELLIGENCE & EXTRACTION
-1. PDF Data Extraction → Phase 3.1
-2. Messy Scan OCR → Phase 3.2
-3. Handwritten Document Reading → Phase 3.3
-4. Key Date Extraction → Phase 3.4
-5. Party Extraction → Phase 3.5
-
-### II. COMMUNICATION & SENTIMENT INTELLIGENCE
-6. Email Thread Comprehension → Phase 4.1
-7. SMS Extraction → Phase 4.2
-8. Tone & Urgency Detection → Phase 4.3
-9. Silent Party Flagging → Phase 4.4
-10. Zero-Dashboard Experience → Phase 8.3
-
-### III. PREDICTIVE RISK & SCORING
-11. Deal Risk Identification → Phase 5.2
-12. Deal Health Score → Phase 5.1
-13. Deal Prioritization → Phase 5.3
-
-### IV. HUMAN-IN-THE-LOOP ACTION EXECUTION
-14. Missing Document Detection → Phase 6.1 (Auditor)
-15. Missing Signature Detection → Phase 6.1
-16. Follow-up Email Drafting → Phase 6.2 (Communicator)
-17. Strategic Reminder Drafting → Phase 6.2
-18. Approval-Gated Sending → Phase 7.1-7.2
-19. Auto Task Creation → Phase 7.3
-20. Intelligent CRM Updates → Phase 7.4
-21. Morning Brief Generation → Phase 7.5
-22. Expert Q&A → Phase 6.4 (Strategist)
-
-### V. DEAL MANAGEMENT & TRACKING
-23. Deal Summarization → Phase 6.4
-24. Portfolio Tracking → Phase 5.3
-
-### VI. AUDIT, COMPLIANCE & CONTINUOUS LEARNING
-25. Immutable Audit Trail → Phase 10.1
-26. Florida Deep Specialization → Phases 1, 3.6, 10.2
-27. Continuous Self-Learning → Phase 11
-
-=============================================================================
+================================================================================
 # CRITICAL SUCCESS PRINCIPLES
 
 1. **Hermes is your foundation, not your cage**
@@ -1045,7 +1209,7 @@ Learning metrics:
    - Predict problems before they happen
    - Don't just react to issues
 
-=============================================================================
+================================================================================
 # FLORIDA LEGAL REFERENCE
 
 ## FAR/BAR Contract Types
@@ -1081,7 +1245,108 @@ Learning metrics:
 - Title commitment: 10-20 days before closing
 - Closing: 45-60 days (financed), 30-45 days (cash)
 
-=============================================================================
+================================================================================
+# PHASE 14: REAL ESTATE POWER FEATURES (Week 12-13)
+
+Step 14.1: Signature Tools
+File: `guardian_ai/tools/signature_tools.py`
+- DocuSign API integration
+- dotloop API integration
+- Track signature status in real-time
+- Send reminders for unsigned documents
+- Store signed documents with audit trail
+- Signature verification
+
+Step 14.2: Wire Fraud Guard
+File: `guardian_ai/tools/wire_fraud_guard.py`
+- Monitor for wire instruction changes in communications
+- Compare current wire instructions against baseline
+- Flag any modification immediately
+- Enforce phone callback verification: agent must call title company directly
+- Dual-approval for wire transfers above $100K
+- Audit trail for all wire-related communications
+
+Step 14.3: Offer Tools
+File: `guardian_ai/tools/offer_tools.py`
+- Counter-offer drafting with strategy notes
+- Multiple offer comparison matrix
+- Bidding war tracker
+- Offer timeline management
+- Seller response follow-up automation
+
+Step 14.4: CMA Tools
+File: `guardian_ai/tools/cma_tools.py`
+- Pull comparables from MLS/ATTOM
+- Generate professional CMA report
+- Adjust for condition, location, upgrades
+- Historical price trend analysis
+- Days on market comparison
+
+Step 14.5: Calendar Tools
+File: `guardian_ai/tools/calendar_tools.py`
+- Schedule inspections
+- Schedule closings
+- Set deadline reminders
+- Google Calendar integration
+- Outlook Calendar integration
+- Automatic reminder notifications
+
+Step 14.6: Voice Tools
+File: `guardian_ai/tools/voice_tools.py`
+- Log phone calls with transcription
+- Transcribe voicemails automatically
+- Extract key points from conversations
+- Sentiment analysis on voice communications
+- Call summary for deal context
+
+================================================================================
+# PHASE 15: BUSINESS OPERATIONS (Week 13-14)
+
+Step 15.1: Onboarding Wizard
+File: `guardian_ai/onboarding/`
+5-step setup wizard:
+1. Connect email (Gmail/Outlook OAuth)
+2. Connect CRM (FUB, kvCORE, LionDesk)
+3. Upload first contract or import existing deals
+4. Set preferences (tone, working hours, notification preferences)
+5. Welcome dashboard with quick tutorial
+
+Step 15.2: Migration Tool
+File: `guardian_ai/migration/`
+- CSV import from Dotloop
+- CSV import from SkySlope
+- Import from TCdocs
+- Batch deal migration
+- Field mapping UI
+- Migration validation and error reporting
+
+Step 15.3: Analytics Dashboard
+File: `guardian_ai/dashboard/`
+Metrics:
+- Deals closed (monthly/quarterly/yearly)
+- Hours saved (estimated based on task automation)
+- Risks prevented (deal-killers caught before closing)
+- ROI calculator: subscription cost vs. deals protected
+- Agent productivity trends
+- Communication efficiency metrics
+
+Step 15.4: Billing System
+File: `guardian_ai/billing/`
+Pricing tiers:
+- $49/month per agent (unlimited deals)
+- OR $15 per closed deal (pay-per-deal)
+- Free trial: 3 deals free, no credit card required
+- Annual subscription discount: 2 months free
+
+Step 15.5: Feature Flags
+File: `guardian_ai/feature_flags/`
+- Gradual rollout of new capabilities per tenant
+- A/B testing capability for new features
+- Per-tenant feature enablement
+- Beta program for early adopters
+- Rollback capability if issues detected
+
+================================================================================
 # TAGLINES FOR CUSTOMER MESSAGING
 
 - "Your Silent Guardian. Your Crystal Ball. Your Deal Co-Pilot."
@@ -1090,5 +1355,5 @@ Learning metrics:
 - "Zero dashboards. Zero new interfaces. Zero learning curve."
 - "Predict problems before they become closing nightmares."
 
-=============================================================================
+================================================================================
 # END OF PLAN
